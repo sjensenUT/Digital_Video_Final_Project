@@ -9,10 +9,17 @@ from tensorflow.keras.layers import Conv2DTranspose, Conv2D, Input
 import cv2
 import os
 import argparse
+import random
 
 parser = argparse.ArgumentParser(description='Image De-Noising')
 parser.add_argument('--inference', action="store_true", default=False)
+parser.add_argument('--checkpoint_path', type=str, default='./model/1.ckpt')
+parser.add_argument('--num_epochs', type=int, default=10)
 args = parser.parse_args()
+
+inference = args.inference
+checkpoint_path = args.checkpoint_path
+num_epochs = args.num_epochs
 
 def load_images_from_folder(folderGT, folderNoisy):
     imgTensorsGT = []
@@ -36,8 +43,17 @@ print('')
 print('ground truth shape = ' + str(ground_truth_images.shape))
 print('noisy shape = ' + str(noisy_images.shape))
 
+rand = random.randint(0,1000000)
+ground_truth_images = tf.random.shuffle(ground_truth_images, seed=rand)
+noisy_images = tf.random.shuffle(noisy_images, seed=rand)
+
+
+
 [x_train, x_test] = tf.split(ground_truth_images, [90, 10], axis=0)
 [x_train_noisy, x_test_noisy] = tf.split(noisy_images, [90, 10], axis=0)
+
+
+
 
 print('train gt shape = ' + str(x_train.shape))
 print('test gt shape = ' + str(x_test.shape))
@@ -80,7 +96,6 @@ class NoiseReducer(tf.keras.Model):
 autoencoder = NoiseReducer()
 autoencoder.compile(optimizer='adam', loss='mse')
 
-checkpoint_path = "model/1.ckpt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 
 # Create a callback that saves the model's weights
@@ -88,12 +103,12 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
                                                  save_weights_only=True,
                                                  verbose=1)
 
-if args.inference:
+if inference:
     autoencoder.load_weights(checkpoint_path)
 else:
     autoencoder.fit(x_train_noisy,
             x_train,
-            epochs=10,
+            epochs=num_epochs,
             shuffle=True,
             validation_data=(x_test_noisy, x_test),
             callbacks=[cp_callback])
@@ -128,4 +143,3 @@ for i in range(n):
     ax.get_yaxis().set_visible(False) 
 
 plt.savefig('final.png')
-
