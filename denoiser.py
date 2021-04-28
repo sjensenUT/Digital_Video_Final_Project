@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.datasets import fashion_mnist
 import matplotlib.pyplot as plt
-from tensorflow.keras.layers import Conv2DTranspose, Conv2D, Input
+from tensorflow.keras.layers import Conv2DTranspose, Conv2D, Input, MaxPool2D, UpSampling2D, BatchNormalization
 import cv2
 import os
 import argparse
@@ -93,7 +93,38 @@ class NoiseReducer(tf.keras.Model):
     decoded = self.decoder(encoded)
     return decoded
 
-autoencoder = NoiseReducer()
+class NoiseReducer2(tf.keras.Model):
+  def __init__(self):
+
+    super(NoiseReducer2, self).__init__()
+
+    self.encoder = tf.keras.Sequential([
+      Input(shape=(512, 512, 3)),
+      Conv2D(64, (3,3), activation='relu', padding='same'),
+      MaxPool2D((2,2), padding = 'same'),
+      BatchNormalization(),
+      Conv2D(32, (3,3), activation='relu', padding='same'),
+      MaxPool2D((2,2), padding = 'same'),
+      BatchNormalization(),
+      Conv2D(16, (3,3), activation='relu', padding='same'),
+      MaxPool2D((2,2), padding = 'same')])
+
+    self.decoder = tf.keras.Sequential([
+      Conv2D(64, (3,3), activation='relu', padding='same'),
+      UpSampling2D((2,2)),
+      Conv2D(32, (3,3), activation='relu', padding='same'),
+      UpSampling2D((2,2)),
+      Conv2D(16, (3,3), activation='relu', padding='same'),
+      UpSampling2D((2,2)),
+      Conv2D(3, kernel_size=(3,3), activation='sigmoid', padding='same')])
+
+  def call(self, x):
+    encoded = self.encoder(x)
+    decoded = self.decoder(encoded)
+    return decoded
+
+
+autoencoder = NoiseReducer2()
 autoencoder.compile(optimizer='adam', loss='mse')
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
