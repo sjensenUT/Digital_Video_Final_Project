@@ -15,11 +15,17 @@ parser = argparse.ArgumentParser(description='Image De-Noising')
 parser.add_argument('--inference', action="store_true", default=False)
 parser.add_argument('--checkpoint_path', type=str, default='./model/1.ckpt')
 parser.add_argument('--num_epochs', type=int, default=10)
+parser.add_argument('--batch_size', type=int, default=50)
+parser.add_argument('--image_dir', type=str, default='./images')
+#parser.add_argument('--learning_rate', type=float, default=0.001)
 args = parser.parse_args()
 
 inference = args.inference
 checkpoint_path = args.checkpoint_path
 num_epochs = args.num_epochs
+batch_size = args.batch_size
+image_dir = args.image_dir
+#learning_rate=args.learning_rate
 
 def load_images_from_folder(folderGT, folderNoisy):
     imgTensorsGT = []
@@ -38,14 +44,14 @@ def load_images_from_folder(folderGT, folderNoisy):
         
 
 print('----------loading images----------')
-[ground_truth_images, noisy_images] = load_images_from_folder('./images/ground_truths', './images/noisy')
+[ground_truth_images, noisy_images] = load_images_from_folder(os.path.join(image_dir, 'ground_truths'), os.path.join(image_dir, 'noisy'))
 print('')
 print('ground truth shape = ' + str(ground_truth_images.shape))
 print('noisy shape = ' + str(noisy_images.shape))
 
-rand = random.randint(0,1000000)
-ground_truth_images = tf.random.shuffle(ground_truth_images, seed=rand)
-noisy_images = tf.random.shuffle(noisy_images, seed=rand)
+#rand = random.randint(0,1000000)
+#ground_truth_images = tf.random.shuffle(ground_truth_images, seed=rand)
+#noisy_images = tf.random.shuffle(noisy_images, seed=rand)
 
 
 
@@ -124,7 +130,7 @@ class NoiseReducer2(tf.keras.Model):
     return decoded
 
 
-autoencoder = NoiseReducer2()
+autoencoder = NoiseReducer()
 autoencoder.compile(optimizer='adam', loss='mse')
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
@@ -140,13 +146,16 @@ else:
     autoencoder.fit(x_train_noisy,
             x_train,
             epochs=num_epochs,
+            batch_size=batch_size,
             shuffle=True,
             validation_data=(x_test_noisy, x_test),
             callbacks=[cp_callback])
 
 
-encoded_imgs=autoencoder.encoder(x_test_noisy).numpy()
-decoded_imgs=autoencoder.decoder(encoded_imgs)
+#encoded_imgs=autoencoder.encoder(x_test_noisy).numpy()
+#decoded_imgs=autoencoder.decoder(encoded_imgs)
+
+decoded_imgs=autoencoder.call(x_test_noisy)
 
 n = 10 
 plt.figure(figsize=(20, 7))
