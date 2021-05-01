@@ -4,12 +4,12 @@ from PIL import Image
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.datasets import fashion_mnist
+import matplotlib as mpl
+mpl.use ( 'Agg') # must be written both in import intermediate
 import matplotlib.pyplot as plt
 from tensorflow.keras.layers import Conv2DTranspose, Conv2D, Input, MaxPool2D, UpSampling2D, BatchNormalization
-import cv2
 import os
 import argparse
-import random
 
 parser = argparse.ArgumentParser(description='Image De-Noising')
 parser.add_argument('--inference', action="store_true", default=False)
@@ -30,8 +30,10 @@ image_dir = args.image_dir
 def load_images_from_folder(folderGT, folderNoisy):
     imgTensorsGT = []
     imgTensorsNoisy = []
+    count = 0
     for filename in os.listdir(folderGT):
         print('loading ' + str(filename))
+        count+=1
         imgGT = Image.open(os.path.join(folderGT,filename))
         imgNoisy = Image.open(os.path.join(folderNoisy,filename))
         imgDataGT = np.asarray(imgGT)
@@ -40,6 +42,7 @@ def load_images_from_folder(folderGT, folderNoisy):
         imgTensorNoisy = tf.convert_to_tensor(imgDataNoisy, dtype=tf.float32)
         imgTensorsGT.append(imgTensorGT)
         imgTensorsNoisy.append(imgTensorNoisy)
+        if(count==5186): break
     return [tf.stack(imgTensorsGT)/255.0, tf.stack(imgTensorsNoisy)/255.0] 
         
 
@@ -63,13 +66,14 @@ print('test_size = ' + str(test_size))
 [x_train, x_test] = tf.split(x_train, [train_size, test_size], axis=0)
 [x_train_noisy, x_test_noisy] = tf.split(x_train_noisy, [train_size, test_size], axis=0)
 
-
-
-
 print('train gt shape = ' + str(x_train.shape))
 print('test gt shape = ' + str(x_test.shape))
 print('train noisy shape = ' + str(x_train_noisy.shape))
 print('test noisy shape = ' + str(x_test_noisy.shape))
+
+#if inference:
+#    x_test_noisy = x_test_noisy[0:99]
+#    x_test = x_test[0:99]
 
 #n = 5
 #plt.figure(figsize=(20, 8))
@@ -90,7 +94,7 @@ class NoiseReducer(tf.keras.Model):
     super(NoiseReducer, self).__init__()
 
     self.encoder = tf.keras.Sequential([
-      Input(shape=(512, 512, 3)),
+      Input(shape=(384, 512, 3)),
       Conv2D(16, (3,3), activation='relu', padding='same', strides=2),
       Conv2D(8, (3,3), activation='relu', padding='same', strides=2)])
 
@@ -135,7 +139,7 @@ class NoiseReducer2(tf.keras.Model):
     return decoded
 
 
-autoencoder = NoiseReducer()
+autoencoder = NoiseReducer2()
 autoencoder.compile(optimizer='adam', loss='mse')
 
 checkpoint_dir = os.path.dirname(checkpoint_path)
@@ -160,7 +164,8 @@ else:
 #encoded_imgs=autoencoder.encoder(x_test_noisy).numpy()
 #decoded_imgs=autoencoder.decoder(encoded_imgs)
 
-decoded_imgs=autoencoder.call(x_test_noisy)
+#decoded_imgs=autoencoder.call(x_test_noisy)
+decoded_imgs=autoencoder.predict(x_test_noisy, batch_size=batch_size)
 
 n = 10 
 plt.figure(figsize=(20, 7))
