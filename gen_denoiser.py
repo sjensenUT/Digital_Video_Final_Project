@@ -13,9 +13,9 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Image De-Noising')
 parser.add_argument('--inference', action="store_true", default=False)
-parser.add_argument('--checkpoint_path', type=str, default='./model/1.ckpt')
+parser.add_argument('--checkpoint_path', type=str, default='./model/2.ckpt')
 parser.add_argument('--num_epochs', type=int, default=10)
-parser.add_argument('--batch_size', type=int, default=50)
+parser.add_argument('--batch_size', type=int, default=10)
 parser.add_argument('--image_dir', type=str, default='./images_2')
 #parser.add_argument('--learning_rate', type=float, default=0.001)
 args = parser.parse_args()
@@ -32,15 +32,15 @@ def img_generator(folderGT, folderNoisy, batch_size):
     file_list = os.listdir(folderGT) 
     i = 0
     while 1:
-        print("starting new batch")
+        #print("starting new batch")
         img_batch = []
         img_batch_noisy = []
         for b in range(batch_size):
             if i == len(file_list):
                 i = 0
-                random.shuffle(file_list)
+                np.random.shuffle(file_list)
             filename = file_list[i]
-            print(filename)
+            #print(filename)
             #print('img_batch size = ' + str(len(img_batch)))
             i += 1
             imgGT = Image.open(os.path.join(folderGT,filename))
@@ -53,7 +53,7 @@ def img_generator(folderGT, folderNoisy, batch_size):
             img_batch_noisy.append(imgDataNoisy/255.0)
             imgGT.close()
             imgNoisy.close()
-        print('yielding')
+        #print('yielding')
         yield np.stack(img_batch_noisy), np.stack(img_batch)
 
 
@@ -106,12 +106,13 @@ steps_per_epoch = len(os.listdir(folderGT))/batch_size
 if inference:
     autoencoder.load_weights(checkpoint_path)
 else:
-    autoencoder.fit(img_generator(folderGT, folderNoisy, batch_size),
-            steps_per_epoch=steps_per_epoch,
-            epochs=num_epochs,
-            batch_size=batch_size,
-            shuffle=True,
-            callbacks=[cp_callback])
+    with tf.device('/gpu:0'):
+        autoencoder.fit(img_generator(folderGT, folderNoisy, batch_size),
+                steps_per_epoch=steps_per_epoch,
+                epochs=num_epochs,
+                batch_size=batch_size,
+                shuffle=True,
+                callbacks=[cp_callback])
 
 
 #encoded_imgs=autoencoder.encoder(x_test_noisy).numpy()
